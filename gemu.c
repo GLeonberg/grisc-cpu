@@ -2,7 +2,12 @@
 
 //-------------------------------------------------------
 
-#include <process.h>
+#ifdef __linux__ 
+	#include <sys/unistd.h>
+#else
+	#include <process.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -179,7 +184,12 @@ void dispUpdate()
 	if(newCharOut == 1)
 	{
 		int i = 0;
+		
+	#ifdef __linux__ 
+		system("clear");
+	#else
 		system("cls");
+	#endif
 
 		for(i = vidMem; (i <= 0xFFFF); i++)
 			printf("%c", (char)mem[i]);
@@ -300,13 +310,13 @@ void sw(byte reg, byte loc)
 void beq(byte a, byte b, byte dest)
 {
 	if(registers[a] == registers[b])
-		registers[pc] += registers[dest];
+		registers[pc] = registers[dest];
 }
 
 void bne(byte a, byte b, byte dest)
 {
 	if(registers[a] != registers[b])
-		registers[pc] += registers[dest];
+		registers[pc] = registers[dest];
 }
 
 void lui(byte reg, byte imm)

@@ -1,7 +1,7 @@
 // Greg's "Grisc" Assembler (gasm)
 
 // maximum 80 characters per line
-// comments and whitespace ignored
+// comments and whitespace ignored EXCEPT for inside an instruction
 // instructions MUST be on one line each
 
 // source code forms:
@@ -14,6 +14,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+
+#ifdef __linux__ 
+	#include <sys/unistd.h>
+#else
+	#include <process.h>
+#endif
 
 //-------------------------------------------------------
 
@@ -91,35 +97,16 @@ struct tag
 };
 
 //-------------------------------------------------------
-// text parsing and recognition
-char* getLine(FILE*);
-int isInstruction(char* line)
-int isPseudo(char* line);
-
-// psuedo instruction translation
-word* pseudoConvert(char* line)
 
 // true instruction translation
 byte regNum(char* regName);
 byte opNum(char* operation);
-int getType(byte opcode);
-
-// instruction packing
-word makeR(byte opNum, byte regA, byte regB, byte regC);
-word makeI(byte opNum, byte regA, byte imm);
-
-// command code creation
-char* getOp(char* line);
-char* getA(char* line);
-char* getB(char* line);
-char* getC(char* line);
-char* getImm(char* line);
 
 // main functions
 void strip(FILE* input, FILE* output);
 void expand(FILE* input, FILE* output);
 void populateTags(FILE* input, tag* dict);
-void translate(FILE* input, FILE* output);
+void translate(FILE* input, FILE* output, tag* dict);
 
 //-------------------------------------------------------
 
@@ -166,13 +153,22 @@ int main(int argc, char* argv[])
 	populateTags(tempB, tags);
 	
 	// go through tempB file and convert instructions into binary form, store in output file
-	translate(tempB, output);
+	translate(tempB, output, tags);
 
 	// free and close everything and exit program
 	fclose(input);
 	fclose(temp);
 	fclose(tempB);
 	fclose(output);
+	
+	#ifdef __linux__ 
+		system("rm temp.txt");
+		system("rm tempB.txt");
+	#else
+		system("del temp.txt");
+		system("del tempB.txt");
+	#endif
+	
 	free(tags);
 	return 0;
 }
@@ -182,7 +178,7 @@ int main(int argc, char* argv[])
 void strip(FILE* input, FILE* output)
 {
 	rewind(input);
-	char* newLine;
+	char* newLine = NULL;
 	char line[lineLen+1];
 
 	// for each line in the file
@@ -190,15 +186,16 @@ void strip(FILE* input, FILE* output)
 	{
 		// read line into buffer
 		bzero(&line, sizeof(line));
-		fgets(line, sizeof(line), input);
+		fgets(line, sizeof(line)-1, input);
 		line[sizeof(line)] = 0;
 
-		// check if line contains an instruction
+		// check if line contains an instruction and remove leading spaces
 		strsep(&newLine, "_")
 		if(line != NULL)
 		{
-			// remove comments if they exists
+			// remove comments and trailing spaces if they exist
 			newLine = strsep(&newLine, "//");
+			newLine = strsep(&newLine, " ");
 
 			// write stripped line to file
 			strcat(newLine, "\n");
@@ -211,8 +208,7 @@ void strip(FILE* input, FILE* output)
 
 void expand(FILE* input, FILE* output)
 {
-
-
+	return;
 }
 
 //-------------------------------------------------------
@@ -224,14 +220,31 @@ void populateTags(FILE* input, tag* dict)
 	char* newLine;
 	char line[lineLen+1];
 	word pc = pcInit;
+	int index = 0;
 
 	// for each line in the file
 	while(!feof(input))
 	{
+		char* title = NULL;
+
 		// read line into buffer
 		bzero(&line, sizeof(line));
-		fgets(line, sizeof(line), input);
+		fgets(line, sizeof(line)-1, input);
 		line[sizeof(line)] = 0;
+
+		// get tag if it exists, remove trailing spaces
+		title = strsep(&line, ":");
+
+		if(line != NULL)
+		{
+			// strip leading spaces
+			while(title[0] = ' ')
+				title++;
+
+			// add tag to dict with pc number
+			strcpy(dict[index].title, title);
+			dict[index++].address = pc + 0x0001;
+		}
 
 		// increment pc
 		pc += 0x0001;
@@ -241,8 +254,171 @@ void populateTags(FILE* input, tag* dict)
 
 //-------------------------------------------------------
 
-//-------------------------------------------------------
+// TODO: Implement "la" instruction, "lw" & "sw" data tag matching
+// TODO: add "nop" support?
+
+void translate(FILE* input, FILE* output, tag* dict)
+{
+	rewind(input);
+	word pc = pcInit;
+
+	// for each line in the file
+	while(!feof(input))
+	{
+		int i = 0;
+		int immYes = 0, tagYes = 0; // flags
+		char line[lineLen];
+		char* tag = NULL, *ir = NULL;
+		char *operation = NULL, *regA = NULL, *regB_Imm = NULL, *regC_Tag = NULL;
+		word instruction = 0x0000, tagLoc = 0x0000;
+		byte opcode = 0x00, A = 0x00, B = 0x00, C = 0x00, Imm = 0x00;
+
+		// read line into buffer
+		bzero(&line, sizeof(line));
+		fgets(line, sizeof(line)-1, input);
+		line[sizeof(line)] = 0;
+
+		// strip away potential tag
+		tag = strsep(&line, ":");
+		ir = (line == NULL) ? tag : line;
+
+		// separate components of instruction line
+		operation = strsep(&ir, " ");
+		regA = strsep(&ir, ", ");
+		regB_Imm = strsep(&ir, ", ");
+		regC_Tag = ir;
+
+		// translate opcode to binary
+		opcode = opNum(operation);
+
+		// translate regA to binary
+		A = regNum(regA);
+
+		// check if immediate exists and fill out data for B and Imm
+		if((B = regNum(regB_Imm)) = 0xFF) 
+		{
+			immYes = 1;
+			Imm = (byte)(atoi(regB_Imm));
+		}
+
+		// check if tag exists and fill out data for C
+		if(regC_Tag != NULL)
+			if((C = regNum(regC_Tag)) = 0xFF) 
+				tagYes = 1;
+
+		// if tag was found, handle it
+		if(tagYes)
+		{
+			byte lui_op = opNum("lui");
+			byte ori_op = opNum("ori");
+			byte upper = 0x00, lower = 0x00;
+
+			// get tag address
+			for(i = 0; i < maxTags; i++)
+			{
+				if(strcmp(regC_Tag, dict[i].title) == 0)
+				{
+					tagLoc = dict[i].address;
+					break;
+				}
+			}
+
+			// alter tag locations that occur afterwards to compensate
+			for(i; i < maxTags; i++)
+				dict[i].address += 0x0002;
+
+			// split upper and lower components
+			upper = (byte)((tagLoc >> 8)  & 0x00FF);
+			lower = (byte)(tagLoc & 0x00FF);
+
+			// write lui instruction
+			instruction = (((word)opNum("lui")) << 12) & 0xF000;
+			instruction = instruction | ((((word)regNum("$at")) << 8) & 0x0F00);
+			instruction = instruction | (((word)upper) & 0x00FF);
+			fwrite((void*)&instruction, sizeof(word), 1, output);
+
+			// write ori instruction
+			instruction = (((word)opNum("ori")) << 12) & 0xF000;
+			instruction = instruction | ((((word)regNum("$at")) << 8) & 0x0F00);
+			instruction = instruction | (((word)lower) & 0x00FF);
+			fwrite((void*)&instruction, sizeof(word), 1, output);
+
+			// write altered branch instruction
+			instruction = (((word)opCode) << 12) & 0xF000;
+			instruction = instruction | ((((word)A)) & 0x0F00);
+			instruction = instruction | ((((word)B)) & 0x00F0);
+			instruction = instruction | ((((word)regNum("$at"))) & 0x000F);
+			fwrite((void*)&instruction, sizeof(word), 1, output);
+		}
+
+		// normal instructions
+		else
+		{
+
+			// lw, sw
+			if( (opcode == 0x01) || (opcode == 0x02) )
+			{
+				instruction = (((word)opCode) << 12) & 0xF000;
+				instruction = instruction | ((((word)A)) & 0x0F00);
+				instruction = instruction | ((((word)B)) & 0x00F0);
+				fwrite((void*)&instruction, sizeof(word), 1, output);
+			}
+
+			// lui, ori
+			else if((opcode == 0x05) || (opcode == 0x06))
+			{
+				instruction = (((word)opCode) << 12) & 0xF000;
+				instruction = instruction | ((((word)A)) & 0x0F00);
+				instruction = instruction | ((((word)Imm)) & 0x00FF)
+				fwrite((void*)&instruction, sizeof(word), 1, output);
+			}
+
+			// R type
+			else
+			{
+				instruction = (((word)opCode) << 12) & 0xF000;
+				instruction = instruction | ((((word)A)) & 0x0F00);
+				instruction = instruction | ((((word)B)) & 0x00F0);
+				instruction = instruction | ((((word)C)) & 0x000F);
+				fwrite((void*)&instruction, sizeof(word), 1, output);
+			}
+
+		}
+
+		// increment pc
+		pc += 0x0001;
+	}
+
+}
 
 //-------------------------------------------------------
 
+byte opNum(char* operation)
+{
+	int i = 0;
+	byte num = 0x00;
+
+	for(i = 0; i < 16; i++)
+		if( strcmp(operation, commands[i]) == 0)
+			num = (byte)i;
+
+	return num;
+}
+
 //-------------------------------------------------------
+
+byte regNum(char* regName)
+{
+	int i = 0;
+	byte num = 0xFF;
+
+	for(i = 0; i < 16; i++)
+		if( strcmp(regName, registers[i]) == 0)
+			num = (byte)i;
+
+	return num;
+}
+
+//-------------------------------------------------------
+
+
