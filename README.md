@@ -1,4 +1,4 @@
-# grisc-cpu
+# Grisc CPU
 A Custom Risc CPU
 
 Features:    
@@ -14,9 +14,9 @@ Features:
     - 16 bit instructions    
 - RISC Architecture  
     - Load/Store  
-    - 16 instructions (fully complete operation)      
+    - 16 instructions       
 
-Also Includes:  
-- gemu: A fully functional emulator written in C
+Also Includes: (Software Toolchain)  
+- gemu: An emulator written in C
 - gasm: An assembler written in C
 
