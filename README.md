@@ -12,6 +12,6 @@ Features:
     - Harvard Architecture   
 
 Also Includes: (Software Toolchain)  
-- gemu: An emulator written in Python (coming soon)
-- gasm: An assembler written in Matlab (Python conversion coming soon)
+- gemu: An emulator written in Python
+- gasm: An assembler written in Python
 
