@@ -1,4 +1,4 @@
-##---------------------------------------------------------------
+##----------------------------------------------------------
 # Written by Gregory Leonberg for 332:493:02 "Embedded Systems Design"
 # Fall 2017 Semester
 # Simulates GRISC ISA assembly
