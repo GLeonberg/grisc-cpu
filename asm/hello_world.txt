@@ -19,7 +19,5 @@ send $r7
 add $r3 $r3 $r5 // increment char pointer
 j beg 
 
-// time for video stuff REDACTED
 end:
 add $zero $zero $zero
-
