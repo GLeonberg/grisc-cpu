@@ -14,5 +14,5 @@ Features:
 Also Includes: (Software Toolchain)  
 - asm: Sample GRISC assembly programs
 - gemu: An emulator/debugger written in Python, includes UART and VGA simulation for full system emulation as well as an interactive debug shell with user controllable breakpoints and peek/poke commands
-- gasm: An assembler written in Python, targets Xilinx BRAM COE output files for instruction and data memories
+- gasm: An assembler written in Python and Matlab, targets Xilinx BRAM COE output files for instruction and data memories. Python version has minor improvements in syntax parsing
 
